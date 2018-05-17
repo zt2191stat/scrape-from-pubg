@@ -1,0 +1,897 @@
+---
+title: "GR5293 Final Project"
+author: "Yue Huang, Zheren Tang"
+date: "11/27/2017"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(extracat)
+library(dplyr)
+library(GGally)
+library(fmsb)
+library(ggplot2)
+```
+
+###1. Introduction
+
+![](https://qzprod.files.wordpress.com/2017/10/pubg-poster-e1509349216289.jpg?quality=80&strip=all&w=5613 )
+
+We are going to explore the players' statistics of PC game PlayerUnknown's Battleground (PUBG). This game was released in March 2017 and "by the end of the year, it had sold over twenty million copies and had a peak concurrent player count of over two million, making it the most played game on the platform" [wiki](https://en.wikipedia.org/wiki/PlayerUnknown%27s_Battlegrounds). We have played a lot and thus are interested in what contributes to the difference of players' general ratings (i.e., scores, the larger the better). 
+  
+  ![](http://i.imgur.com/ZA6v0j9.jpg )
+  
+This "BATTLE ROYALE game-mode will put up to 100 players on a remote island 
+for a winner-takes-allshowdown where strategic gameplay is as important as shooting skills. Players will enter a last-man-standing battle where they try to locate weapons, vehicles and supplies in a graphically and tactically rich battleground that eventually forces players into a shrinking play zone as they engage in a tense and spectacular fight to the death."  [pubg](https://playbattlegrounds.com/overview.pu?locale=en)
+
+We wrote a web crawler to obtain data from [this source](https://pubg.me/) by searching players' IDs (You can try to search "BreakNeck", the first row of our dataset, but the data may be different since the new season has started). The scrapping code is uploaded on [this repo](https://github.com/zt2191stat/scrape-from-pubg). As a result, we get our raw data and you can view it in [google drive](https://drive.google.com/open?id=1rsYz309sc34EhXY2U8jZh_ps2DjHCzLZ) (You need log in your columbia email to get access. Besides, it takes some time to view the data online since the data is very large, so you can alternatively download the csv to your Desktop(our dir is set there) and open it on your computer).
+
+###2. Team
+Yue Huang, yh2882  
+Zheren Tang, zt2191  
+Zheren was mainly responsible for scrapping data and radar charts.  
+Yue was mainly responsible for cleaning data and parallel coordinate plot.  
+For the rest, we did together.  
+
+###3. Analysis of Data Quality
+####3.1 Variable Explanation
+**ID**: player's ID in PUBG  
+**AS Solo Rating**: the current rating of player when he plays solo match in Asia Server, the larger the better  
+**Season High**: the highest rating in current season  
+**Rank**: the rank of the player, according to rating  
+**Win rate**: the rate of winning 1st prize  
+**Wins**: the times of winning 1st prize  
+**Win Rank**: the rank according to wins  
+**Kill/Death Ratio**: how many kills the player has / how many deaths he has  
+**Kills**: the number of kills the player has  
+**Kill Rank**: the rank according to kills  
+**Matches Played**: the number of matches the player has played  
+**Daily Logins**: the times of the player logging in every day  
+**AVG Distance Tralvelled**: total distance travelled / matches played  
+**Total Distance Travelled**: total distance on foot + total distance in vehicle  
+**AVG Distance On Foot**: total distance on foot / matches played  
+**AVG Distance In Vehicle**: total distance in vehicle / matches played  
+**Weapons Acquired**: the total number of weapons the player has acquired  
+**Vehicles Destroyed**: the total number of vehicles the player has destroyed  
+**Total Damage Dealt**: the total damage caused by the player  
+**Top 10 rate**: the rate of winning top 10 prizes  
+**Top 10's**: the times of winning top 10 prizes  
+**AVG Survival Time**: total survival time / matches played  
+**Longest Time Survived**: the longest time the player suvived for in a single match  
+**Total Heals**: the total times of recovering HP  
+**Total Boosts**: the total times of the player getting accelerated  
+**Team Kills**: the times of the player killing his teammates including himself  
+**Suicides**: the times of the player killing himself  
+**Revives**: the times of the player getting revived  
+**AVG Damage Per Match**: the total damage dealt / matches played  
+**Most Kills in Match**: the number of most kills in a single match  
+**Assists**: the times of causing damage to his target, but the target is killed by others  
+**KDA**: (kills + assists) / deaths  
+**Headshots**: the times of headshots  
+**Headshot Kill Ratio**: headshots / kills  
+**Longest Kill**: the longest distance when the player kills others at  
+**Road Kills**: the times of the player crashing others to death with a vehicle  
+**Best Kill Streak**: the largest number of persons the player kills continuously  
+**DBNO**: down but not out, the total times of the player knocking down others but not killing them  
+
+####3.2 Check The Completeness of Data
+```{r message=FALSE, warning=FALSE}
+pubg <- read_csv("~/Desktop/pubg_data.csv", 
+    col_types = cols(`AS Solo Rating` = col_number(), 
+        `AVG Damage Per Match` = col_number(), 
+        `AVG Distance In Vehicle` = col_number(), 
+        `AVG Distance On Foot` = col_number(), 
+        `AVG Distance Travelled` = col_number(), 
+        `AVG Survival Time` = col_number(), 
+        Assists = col_number(), `Best Kill Streak` = col_number(), 
+        DBNO = col_number(), `Daily Logins` = col_number(), 
+        `Headshot Kill Ratio` = col_number(), 
+        Headshots = col_number(), KDA = col_number(), 
+        `Kill / Death Ratio` = col_number(), 
+        `Kill Rank` = col_number(), Kills = col_number(), 
+        `Longest Kill` = col_number(), `Longest Time Survived` = col_number(), 
+        `Matches Played` = col_number(), 
+        `Most Kills In Match` = col_number(), 
+        Rank = col_number(), Revives = col_number(), 
+        `Road Kills` = col_number(), `Season High` = col_number(), 
+        Suicides = col_number(), `Team Kills` = col_number(), 
+        `Top 10 Rate` = col_number(), `Top 10's` = col_number(), 
+        `Total Boosts` = col_number(), `Total Damage Dealt` = col_number(), 
+        `Total Distance Travelled` = col_number(), 
+        `Total Heals` = col_number(), `Vehicles Destroyed` = col_number(), 
+        `Weapons Acquired` = col_number(), 
+        `Win Rank` = col_number(), `Win Rate` = col_number(), 
+        Wins = col_number()))
+pubg$`Win Rate` <- pubg$`Win Rate`/100
+pubg$`Top 10 Rate` <- pubg$`Top 10 Rate`/100
+pubg$`Headshot Kill Ratio` <- pubg$`Headshot Kill Ratio`/100
+```
+<br>
+```{r}
+visna(pubg)
+```
+
+Some data only have ID values and miss all the other information. After checking the dataset, we find that this is because not all IDs play solo match in Asia Server, so we will remove these data later.  
+<br>
+```{r}
+which(is.na(pubg$`AVG Distance Travelled`) == T & is.na(pubg$`AS Solo Rating`) == F)
+```
+
+Besides, we also find there is only one player missing 3 values and since our dataset is very large, this missing will not have much impact.  
+<br>
+**As a conclusion, the data is genearlly complete if we remove those IDs who do not play solo match in Asia Server.**
+
+####3.3 Check The Accuracy and Correctness of Data
+```{r}
+t1 <- pubg$`AVG Distance Travelled` * pubg$`Matches Played`
+t2 <- pubg$`Total Distance Travelled`
+sum((t1-t2)^2, na.rm = T)
+
+t3 <- pubg$`AVG Damage Per Match` * pubg$`Matches Played`
+t4 <- pubg$`Total Damage Dealt`
+sum((t3-t4)^2, na.rm = T)
+```
+
+According to the variable explanation, there must be a relation between those "average data" and "total data". Thus we check some of them and calculate the difference. Then we find out that the difference is small compared to the volumn of the data and **conclude that the data is valid and pretty accurate**.
+<br>
+```{r}
+sum(pubg$Revives != 0, na.rm = T)
+sum(pubg$DBNO != 0, na.rm = T)
+```
+
+Since we are exploring the solo match, the player does not have any teammate. If he is knocked down, he cannot be revived and cannot be still in the game. Thus **the variables of Revives and DBNO should all be 0**, but there are some exceptions in this dataset. **We can just remove these two columns because we have already known what they should be and the analysis will not be affected**.
+<br>
+```{r}
+sum(pubg$Suicides != pubg$`Team Kills`, na.rm = T)
+```
+
+Again, it is supposed that the variables of Suicides and Team Kills are the same since this is a solo match, and we only have 7 exceptions here, so we **conclude that the dataset is reliable and removing one of these columns does not affect analysis as well**.    
+
+###4. Main Analysis
+####4.1 Cleaning Data
+**a. remove unnecessary data**
+```{r}
+pubg <- pubg[!is.na(pubg$`AS Solo Rating`),]
+dim(pubg)
+```
+
+We remove those IDs who do not play solo match in Asia Server and get 50000+ rows left.  
+<br>
+```{r}
+pubg$Revives <- NULL
+pubg$DBNO <- NULL
+pubg$`Team Kills` <- NULL
+dim(pubg)
+```
+We delete these three columns as mentioned above and then get 35 variables left.  
+
+**b. divide players into 4 groups according to the quantile of solo rating **
+```{r}
+fourth <- quantile(pubg$`AS Solo Rating`)[4]
+third <- quantile(pubg$`AS Solo Rating`)[3]
+second <- quantile(pubg$`AS Solo Rating`)[2]
+pubg$Status <- NA
+pubg[pubg$`AS Solo Rating` >= fourth,]$Status <- "highest"
+pubg[pubg$`AS Solo Rating` < fourth & pubg$`AS Solo Rating` >= third,]$Status <- "higher"
+pubg[pubg$`AS Solo Rating` < third & pubg$`AS Solo Rating` >= second,]$Status <- "lower"
+pubg[pubg$`AS Solo Rating` < second,]$Status <- "lowest"
+pubg <- within(pubg, Status <- factor(Status, levels=c("lowest", "lower", "higher", "highest")))
+```
+<br>
+
+####4.2 Overview of Data Using Parallel Coordinate Plot
+```{r fig.height=8, fig.width=12}
+p <- pubg
+colnames(p) <- abbreviate(colnames(p), 2)
+ggparcoord(p, columns = 2:35,
+           groupColumn = "St", scale="uniminmax", alphaLines = 0.5) + 
+  scale_colour_manual(values = c("highest" = "purple",
+                                 "higher" = "red",
+                                 "lower" = "orange",
+                                 "lowest" = "yellow")) +
+  ggtitle("Overview of PUBG Data") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+From this graph, we can see that Season High, Wins, Kills, Daily Logins, Total Distance Travelled, Weapons Acquired, Vehicles Destroyed, Total Damage Dealt,  Top 10's, Total Heals, Total Boosts, Assists, Headshots, Road Kills generally follow the color pattern of Purple-Red-Orange-Yellow from top to bottom, which means positively correlated to the level of players.  
+
+However, Rank, Win Rank and Kill Rank follow the opposite color pattern.  
+
+We cannot see clear pattern for the rest variables.  
+<br>
+
+####4.3 Analysis of First Group Variables(Following the Color Pattern of Purple-Red-Orange-Yellow)  
+**Here we use radar chart to display multivariales. Firstly we group similar variables into one class. For example, we group Kills, Road Kills, Headshots, Assists and Total Damage Dealt into a class of killing skills. Then for each class, we compare performances of different levels of players.**  (https://www.kaggle.com/jonathanbouchet/pubg-stats-overview/notebook)
+<br>
+```{r}
+p <- pubg %>%
+  group_by(Status) %>%
+  select_if(is.numeric) %>%
+  summarise_all(funs(mean))
+maxVal<- ceiling(apply(p[,-1], 2, function(x) max(x, na.rm = TRUE)) %>% 
+                   sapply(as.double)) %>% as.vector
+min<-rep.int(0,34)
+p$color<-c("#46ACC8","#F21A00","#EBCC2A" , "#d689bf")
+curCol<-(col2rgb(as.character(p$color[1]))%>% as.integer())/255
+```
+
+**Killing Skills Class**
+```{r}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(8,18,28,30,33)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Killing Skills", side=3, line=-2, outer=TRUE)
+```
+
+Clearly, as the level of players increases, the killing skills get better.
+<br>
+
+**Using Supplies Class**
+```{r}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(16,17,23,24)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Using Supplies", side=3, line=-2, outer=TRUE)
+```
+
+There is no big difference between lowest level and lower level of players. However, we can see much change as the level increases.
+<br>
+
+**Other Variables**
+```{r}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(2,5,20,11)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Other Variables", side=3, line=-2, outer=TRUE)
+```
+
+Again, as the level of players increases, we can see much larger incrases in performance of players.
+
+####4.4 Analysis of Second Group Variables(Following the Opposite Color Pattern)
+**Rank Class**
+```{r}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(3,6,9)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Using Supplies", side=3, line=-2, outer=TRUE)
+```
+
+The all rank variables are negatively correlated with the levels of players. And this is obvious since the larger the rating of the player is, the higher the rank is, which means the smaller the rank number is.  
+
+####4.5 Analysis of Third Group Variables(No Clear Pattern)
+**a. Win Rate**
+```{r message=FALSE, warning=FALSE}
+ggplot(data = pubg) + geom_boxplot(aes(x = Status, y =`Win Rate`)) + 
+  ggtitle("Performance of Win Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+From this graph, we see that lowest level players tend to have 0 Win Rate while the higher and highest level players have higher Win Rate. They also have more outliers. 
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  ggplot(aes(`AS Solo Rating`, `Win Rate`,fill=Status)) +
+  geom_jitter(aes(col= Status)) + geom_smooth() +
+  ggtitle("Performance of Win Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+There is a significant fluctuation around 1300 rating, which is in the lower level. This may be because these players haven't played much. So we explore the IDs who have played more than 4 matches.  
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`, `Win Rate`,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() + 
+  ggtitle("Performance of Win Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+There is a clear upward trend, so we conclude that **Win Rate is positively correlated with the rating**.
+
+**b. headshot kill ratio**
+```{r}
+ggplot(data = pubg) + geom_boxplot(aes(x = Status, y =`Headshot Kill Ratio`)) +
+  ggtitle("Performance of Headshot Kill Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+We see a lot of outliers. Remove some of them.
+<br>
+```{r}
+pubg %>%
+  filter(`Headshot Kill Ratio` < 0.5)%>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Headshot Kill Ratio`)) +
+  ggtitle("Performance of Headshot Kill Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Larger variance can be seen in the lowest level with smallest median value, but little difference can be seen in other levels. 
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  ggplot(aes(`AS Solo Rating`, `Headshot Kill Ratio`,fill=Status)) +
+  geom_jitter(aes(alpha = 0.2)) + geom_smooth() +
+  ggtitle("Performance of Headshot Kill Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Except for a jump in the lower level, there is no much difference among four levels, the same as above. Thus we conclude that **Headshot Kill Ratio has little affect on the rating**.
+
+**c. KD ratio**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Kill / Death Ratio`)) +
+  ggtitle("Performance of KD Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+It is hard to see the pattern, so remove some outliers.
+<br>
+```{r}
+pubg %>%
+  filter(`Kill / Death Ratio` < 10) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Kill / Death Ratio`)) +
+  ggtitle("Performance of KD Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Almost same pattern except for the lowest level.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`Kill / Death Ratio` < 10) %>%
+  ggplot(aes(`AS Solo Rating`, `Kill / Death Ratio`,fill=Status)) +
+  geom_jitter(aes(col= Status)) + geom_smooth() +
+  ggtitle("Performance of KD Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+We see some slight fluctuation in the lower level, so we try the same strategy used above.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`Kill / Death Ratio` < 10 & `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`, `Kill / Death Ratio`,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of KD Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+It shows generally an increasing trend except for the end of the lower level 
+and the begin of the higher level.
+
+**d. avg distance tralvelled**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`AVG Distance Travelled`)) +
+  ggtitle("Performance of Average Distance Travelled") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+The warning and the plot show there are significant outliers, remove them.
+<br>
+```{r}
+pubg %>%
+  filter(`AVG Distance Travelled` < 15) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`AVG Distance Travelled`)) +
+  ggtitle("Performance of Average Distance Travelled") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+There is no obvious difference between these four levels.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`AVG Distance Travelled` < 15) %>%
+  ggplot(aes(`AS Solo Rating`, `AVG Distance Travelled`, fill = Status)) +
+  geom_jitter(aes(col= Status)) + geom_smooth() +
+  ggtitle("Performance of Average Distance Travelled") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+There is still some slight fluctuation in the lower level, try the players with more than 4 matches.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`AVG Distance Travelled` < 15& `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`, `AVG Distance Travelled`, fill = Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Average Distance Travelled") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Now we can see a clear upgoing trend, showing the positive correlation between the two variables.
+
+**e. top 10 rate**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Top 10 Rate`)) +
+  ggtitle("Performance of Top 10 Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Lowest level has much lower median than the other three levels.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  ggplot(aes(`AS Solo Rating`,`Top 10 Rate`,fill=Status)) +
+  geom_jitter(aes(col= Status)) + geom_smooth() +
+  ggtitle("Performance of Top 10 Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Some slight fluctuation in the lower level, try the players with more than 4 matches.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter( `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`,`Top 10 Rate`,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Top 10 Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+It looks like that there is a positive correlation.
+
+**f. avg survival time**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`AVG Survival Time`)) +
+  ggtitle("Performance of Average Survival Time") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Significant outliers, get rid of them.
+<br>
+```{r}
+pubg %>%
+  filter(`AVG Survival Time` < 2000) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`AVG Survival Time`)) +
+  ggtitle("Performance of Average Survival Time") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+No obvious pattern.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`AVG Survival Time` < 2000 & `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`,`AVG Survival Time`,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Average Survival Time") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+The avg survival time shows clear upgoing trend.
+
+**g. longest time survived**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Longest Time Survived`)) +
+  ggtitle("Performance of Longest Survival Time") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Significant outliers again, get rid of them.
+<br>
+```{r}
+pubg %>%
+  filter(`Longest Time Survived` < 1000) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Longest Time Survived`)) + 
+  ggtitle("Performance of Longest Survival Time") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Lowest level can be distinguished with median smaller than other levels, and the other three levels show a small increase trend.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`Longest Time Survived` < 1000 & `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`,`Longest Time Survived`,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Longest Survival Time") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Though we only look at the players with more than 4 matches, a clear drop can still be seen in the lower level, may because the players in this level don't like long hiding game but go out to fight with others, which leads to a quick death.
+
+**h. suicides**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =Suicides)) +
+  ggtitle("Performance of Suicides") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Many outliers, remove them.
+<br>
+```{r}
+pubg %>%
+  filter(Suicides<10) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =Suicides)) +
+  ggtitle("Performance of Suicides") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Not good enough.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(Suicides<10) %>%
+  ggplot(aes(`AS Solo Rating`,Suicides,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Suicides") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+While the medians are all zeros, it shows that only highest level players will 
+commit suicides, which is intuitively not reasonable. 
+
+**i. avg damage per match**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`AVG Damage Per Match`)) +
+  ggtitle("Performance of Average Damage Per Match") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Remove some outliers to see clear pattern.
+<br>
+```{r}
+pubg %>%
+  filter(`AVG Damage Per Match` < 800) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`AVG Damage Per Match`)) +
+  ggtitle("Performance of Average Damage Per Match") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+No clear difference between these four levels.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  filter(`AVG Damage Per Match` < 800& `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`,`AVG Damage Per Match` ,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Average Damage Per Match") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+There is a quick increase from lowest level to lower level, but little change from higher to highest.
+
+**j. most kills in match**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Most Kills In Match`)) +
+  ggtitle("Performance of Most Kills in Match") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+As level increases, the median gets larger and the variance is getting small, showing that this variable is positively correlated with levels.
+
+**k. kda**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y = KDA)) +
+  ggtitle("Performance of KDA") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Outliers, remove them.
+<br>
+```{r}
+pubg %>%
+  filter(KDA<= 10) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =KDA)) +
+  ggtitle("Performance of KDA") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+This looks much like the kd ratio, shows little difference about the levels.
+<br>
+```{r message=FALSE, warning=FALSE}
+pubg %>%
+  ggplot(aes(`AS Solo Rating`,KDA ,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of KDA") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+No obvious trend.
+
+**l. best kill streak**
+```{r}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Best Kill Streak`)) +
+  ggtitle("Performance of Best Kill Streak") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+No clear pattern.
+<br>
+```{r}
+pubg %>%
+  filter(`Best Kill Streak`<= 10) %>%
+  ggplot(aes(x =`Best Kill Streak`, fill = Status))+
+  geom_histogram(aes(y = ..density..), bins = 50) +
+  facet_wrap(~Status) + geom_density()
+```
+
+The patterns for each level look similar to each other, thus Best Kill Streak does not affect the rating significantly.
+
+###5.Executive Summary
+####5.1 Overview
+Here we are exploring the players' statistics of PC game PlayerUnknown's Battleground (PUBG). We are interested in what contributes to the difference of players' general ratings.  
+
+After removing unnecessary data and dividing players into four levels (i.e., lowest, lower, higher, highest), we firstly use parallel coordinate plot to get an overview of the dataset.
+```{r echo=FALSE, fig.height=8, fig.width=12}
+p <- pubg
+colnames(p) <- abbreviate(colnames(p), 2)
+ggparcoord(p, columns = 2:35,
+           groupColumn = "St", scale="uniminmax", alphaLines = 0.5) + 
+  scale_colour_manual(values = c("highest" = "purple",
+                                 "higher" = "red",
+                                 "lower" = "orange",
+                                 "lowest" = "yellow")) +
+  ggtitle("Overview of PUBG Data") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+From this graph, we can see that Season High, Wins, Kills, Daily Logins, Total Distance Travelled, Weapons Acquired, Vehicles Destroyed, Total Damage Dealt,  Top 10's, Total Heals, Total Boosts, Assists, Headshots, Road Kills generally follow the color pattern of Purple-Red-Orange-Yellow from top to bottom, which means these variables are positively correlated to the level of players since Purple represents highest level and Yellow represents lowest level.  
+
+However, Rank, Win Rank and Kill Rank follow the opposite color pattern.  
+
+For the rest variables, we cannot see clear pattern and we will explore more later.  
+
+####5.2 Analysis For Those Positively Correalted Variables
+For those positively correlated variables, we find some variables share similarities. For example, Kills, Road Kills, Headshots, Assists and Total Damage Dealt all tell us the killing skills of the player. Thus we first group similar variables into one category and then use radar chart to display and compare performance of different level of players in each category.
+<br>
+```{r, echo=FALSE}
+p <- pubg %>%
+  group_by(Status) %>%
+  select_if(is.numeric) %>%
+  summarise_all(funs(mean))
+maxVal<- ceiling(apply(p[,-1], 2, function(x) max(x, na.rm = TRUE)) %>% 
+                   sapply(as.double)) %>% as.vector
+min<-rep.int(0,34)
+p$color<-c("#46ACC8","#F21A00","#EBCC2A" , "#d689bf")
+curCol<-(col2rgb(as.character(p$color[1]))%>% as.integer())/255
+```
+
+**Killing Skills Category**
+
+```{r, echo=FALSE}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(8,18,28,30,33)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Killing Skills", side=3, line=-2, outer=TRUE)
+```
+
+Clearly, as the level of players increases, the killing skills get better because each variable displays an increasing trend.
+<br>
+
+**Using Supplies Category**
+
+```{r echo=FALSE}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(16,17,23,24)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Using Supplies", side=3, line=-2, outer=TRUE)
+```
+
+There is no big difference between lowest level and lower level of players, but we can still see a small increase for each variable. However, we can see much change as the level increases from higher to highest.
+<br>
+
+**Other Category**
+
+```{r echo=FALSE}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(2,5,20,11)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Other Variables", side=3, line=-2, outer=TRUE)
+```
+
+Again, as the level of players increases, we can see much larger incrases in performance of players.
+
+####5.3 Analysis For Those Negatively Correalted Variables  
+**We apply radar chart again to these rank variables**
+```{r echo=FALSE}
+par(mfrow=c(2,2),bg="#F0F0F0",mar=c(1,1,1,1))
+for(i in 1:4){
+  curCol<-(col2rgb(as.character(p$color[i]))%>% as.integer())/255
+  t <- rbind(maxVal,min,p[i,-1])
+  radarchart(t[c(3,6,9)],
+             pcol=rgb(curCol[1],curCol[2],curCol[3], alpha = 1) ,
+             pfcol=rgb(curCol[1],curCol[2],curCol[3],.5) ,
+             plwd=2 , cglcol="grey", cglty=1, 
+             axislabcol="black", 
+             caxislabels=seq(0,2000,5), 
+             cglwd=0.8, vlcex=.8, palcex=1.2,
+             title = as.character(p$Status[i]))
+}
+mtext("Performance of Using Supplies", side=3, line=-2, outer=TRUE)
+```
+
+The all rank variables are negatively correlated with the levels of players. And this is obvious since the larger the rating of the player is, the higher the rank is, which means the smaller the rank number is. 
+
+####5.4 Analysis For the Rest Variables
+For those variables which have no clear patterns in parallel coordinate plot, we take 2 steps to analyze them. Firstly, we draw boxplot to see if there is any difference in their distributions. If the boxplot shows significant outliers, then we remove them and do boxplot again. Secondly, when boxplot fails to see the pattern, we do jittered points plot and add smoothed line. Sometimes there will be a jump in the graph, and we guess this may be because some players played not too much. Then we will focus on the players with more than 4 matches and do jittered points plot again. Next we will show some different cases and their conclusions.
+
+**headshot kill ratio: boxplot, remove outliers, jittered plot**
+```{r, echo=FALSE}
+ggplot(data = pubg) + geom_boxplot(aes(x = Status, y =`Headshot Kill Ratio`)) +
+  ggtitle("Performance of Headshot Kill Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+We see a lot of outliers. Remove some of them.
+<br>
+```{r, echo=FALSE}
+pubg %>%
+  filter(`Headshot Kill Ratio` < 0.5)%>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Headshot Kill Ratio`)) +
+  ggtitle("Performance of Headshot Kill Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Larger variance can be seen in the lowest level with smallest median value, but little difference can be seen in other levels. 
+<br>
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+pubg %>%
+  ggplot(aes(`AS Solo Rating`, `Headshot Kill Ratio`,fill=Status)) +
+  geom_jitter(aes(col=Status)) + geom_smooth() +
+  ggtitle("Performance of Headshot Kill Ratio") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Except for a jump in the lower level, there is no much difference among four levels, the same as above. Thus we conclude that Headshot Kill Ratio has little affect on the rating.
+
+**top 10 rate: boxplot, jittered plot, focus on players with more than 4 matches**
+```{r echo=FALSE}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Top 10 Rate`)) +
+  ggtitle("Performance of Top 10 Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Lowest level has much lower median than the other three levels.
+<br>
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+pubg %>%
+  ggplot(aes(`AS Solo Rating`,`Top 10 Rate`,fill=Status)) +
+  geom_jitter(aes(col=Status)) + geom_smooth() +
+  ggtitle("Performance of Top 10 Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Some slight fluctuation in the lower level, try the players with more than 4 matches.
+<br>
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+pubg %>%
+  filter( `Matches Played`>4) %>%
+  ggplot(aes(`AS Solo Rating`,`Top 10 Rate`,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Top 10 Rate") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+It looks like that there is a positive correlation.
+
+**suicides： boxplot, remove outliers, jitter plot**
+```{r echo=FALSE}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =Suicides)) +
+  ggtitle("Performance of Suicides") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Many outliers, remove them.
+<br>
+```{r echo=FALSE}
+pubg %>%
+  filter(Suicides<10) %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =Suicides)) +
+  ggtitle("Performance of Suicides") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+Not good enough.
+<br>
+```{r message=FALSE, warning=FALSE, echo=FALSE}
+pubg %>%
+  filter(Suicides<10) %>%
+  ggplot(aes(`AS Solo Rating`,Suicides,fill=Status)) +
+  geom_jitter(aes(col = Status)) + geom_smooth() +
+  ggtitle("Performance of Suicides") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+While the medians are all zeros, it shows that only highest level players will 
+commit suicides, which is intuitively not reasonable. 
+
+**most kills in match: boxplot**
+```{r echo=FALSE}
+pubg %>%
+  ggplot() + geom_boxplot(aes(x = Status, y =`Most Kills In Match`)) +
+  ggtitle("Performance of Most Kills in Match") +
+  theme(plot.title = element_text(size = 16, face = "bold"))
+```
+
+As level increases, the median gets larger and the variance is getting small, showing that this variable is positively correlated with levels.  
+
+**After exploring all the variables, we conclude that Win Rate, KD Ratio, AVG Distance Travelled, Top 10 Rate, AVG Survival Time, and Most Kills in Match are generally have positive correlation with the level of players. However, we need explore more for Headshot Kill Ratio, Longest Time Survived, Suicides, AVG Damage Per Match and KDA since there is no much clear and consistent trend for these variables.**
+
+###6. Conclusion
+Our dataset is very large and has many variables, so it is hard for us to explore deeper and we just get preliminary results. We should focus on the players who have played enough matches for the future study.
